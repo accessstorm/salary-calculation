@@ -40,7 +40,9 @@ const SalaryCalculator = ({
 
   // Pre-populate form if editing existing record
   useEffect(() => {
+    console.log('SalaryCalculator useEffect - existingRecord:', existingRecord);
     if (existingRecord) {
+      console.log('Pre-populating form with existing record data');
       setFormData({
         month: existingRecord.month,
         year: existingRecord.year,
@@ -54,6 +56,8 @@ const SalaryCalculator = ({
         bonus: existingRecord.bonus || 0,
         notes: existingRecord.notes || ''
       });
+    } else {
+      console.log('No existing record, using default form data');
     }
   }, [existingRecord]);
 
@@ -137,6 +141,11 @@ const SalaryCalculator = ({
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    console.log('SalaryCalculator handleSubmit called');
+    console.log('Form data:', formData);
+    console.log('Calculations:', calculations);
+    console.log('Existing record:', existingRecord);
+    
     if (!validateForm()) {
       return;
     }
@@ -152,6 +161,7 @@ const SalaryCalculator = ({
       netPayableSalary: calculations.netPayableSalary
     };
 
+    console.log('Submitting payroll data:', payrollData);
     onSubmit(payrollData);
   };
 

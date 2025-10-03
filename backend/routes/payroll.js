@@ -13,7 +13,7 @@ router.get('/', auth, [
   query('month').optional().isInt({ min: 1, max: 12 }).withMessage('Month must be between 1 and 12'),
   query('year').optional().isInt({ min: 2020, max: 2030 }).withMessage('Year must be between 2020 and 2030'),
   query('employee').optional().isMongoId().withMessage('Invalid employee ID'),
-  query('status').optional().isIn(['draft', 'approved', 'paid', 'cancelled']).withMessage('Invalid status'),
+  query('status').optional().isIn(['draft', 'approved', 'paid', 'cancelled', 'no-invoice']).withMessage('Invalid status'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100')
 ], async (req, res) => {
@@ -28,45 +28,95 @@ router.get('/', auth, [
     const skip = (page - 1) * limit;
     const { month, year, employee, status } = req.query;
 
-    // Build filter object
-    const filter = {};
-    
-    if (month) filter.month = parseInt(month);
-    if (year) filter.year = parseInt(year);
-    if (employee) filter.employee = employee;
-    if (status) filter.status = status;
+    let payrollRecords = [];
+    let total = 0;
 
-    const payrollRecords = await PayrollRecord.find(filter)
-      .populate('employee', 'name email employeeId department position')
-      .populate('createdBy', 'name email')
-      .populate('approvedBy', 'name email')
-      .sort({ year: -1, month: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    if (status === 'no-invoice') {
+      // Special case: find employees with no payroll records
+      const allEmployees = await Employee.find({});
+      const employeesWithRecords = await PayrollRecord.distinct('employee');
+      const employeesWithoutRecords = allEmployees.filter(emp => !employeesWithRecords.includes(emp._id));
+      
+      // Convert to payroll record format for consistency
+      payrollRecords = employeesWithoutRecords.map(emp => ({
+        _id: `no-record-${emp._id}`,
+        employee: emp,
+        status: 'no-invoice',
+        month: null,
+        year: null,
+        payrollDate: null,
+        netPayableSalary: 0,
+        grossSalary: 0,
+        createdAt: emp.createdAt
+      }));
+      
+      total = employeesWithoutRecords.length;
+    } else {
+      // Build filter object for normal queries
+      const filter = {};
+      
+      if (month) filter.month = parseInt(month);
+      if (year) filter.year = parseInt(year);
+      if (employee) filter.employee = employee;
+      if (status) filter.status = status;
 
-    const total = await PayrollRecord.countDocuments(filter);
+      payrollRecords = await PayrollRecord.find(filter)
+        .populate('employee', 'name email employeeId department position')
+        .populate('createdBy', 'name email')
+        .populate('approvedBy', 'name email')
+        .sort({ year: -1, month: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      total = await PayrollRecord.countDocuments(filter);
+    }
 
     // Calculate summary statistics
-    const summary = await PayrollRecord.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: null,
-          totalRecords: { $sum: 1 },
-          totalPayable: { $sum: '$netPayableSalary' },
-          averageSalary: { $avg: '$netPayableSalary' },
-          draftCount: {
-            $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] }
-          },
-          approvedCount: {
-            $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] }
-          },
-          paidCount: {
-            $sum: { $cond: [{ $eq: ['$status', 'paid'] }, 1, 0] }
+    let summary = {};
+    if (status === 'no-invoice') {
+      summary = {
+        totalRecords: total,
+        totalAmount: 0,
+        averageAmount: 0,
+        statusCounts: { 'no-invoice': total }
+      };
+    } else {
+      const filter = {};
+      if (month) filter.month = parseInt(month);
+      if (year) filter.year = parseInt(year);
+      if (employee) filter.employee = employee;
+      if (status) filter.status = status;
+      
+      const summaryResult = await PayrollRecord.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            totalRecords: { $sum: 1 },
+            totalPayable: { $sum: '$netPayableSalary' },
+            averageSalary: { $avg: '$netPayableSalary' },
+            draftCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'draft'] }, 1, 0] }
+            },
+            approvedCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] }
+            },
+            paidCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'paid'] }, 1, 0] }
+            }
           }
         }
-      }
-    ]);
+      ]);
+      
+      summary = summaryResult[0] || {
+        totalRecords: 0,
+        totalPayable: 0,
+        averageSalary: 0,
+        draftCount: 0,
+        approvedCount: 0,
+        paidCount: 0
+      };
+    }
 
     res.json({
       payrollRecords,
@@ -216,7 +266,7 @@ router.put('/:id', auth, [
   body('totalDays').optional().isInt({ min: 0, max: 31 }).withMessage('Total days must be between 0 and 31'),
   body('baseSalary').optional().isNumeric().withMessage('Base salary must be a number'),
   body('netPayableSalary').optional().isNumeric().withMessage('Net payable salary must be a number'),
-  body('status').optional().isIn(['draft', 'approved', 'paid', 'cancelled']).withMessage('Invalid status')
+  body('status').optional().isIn(['draft', 'approved', 'paid', 'cancelled', 'no-invoice']).withMessage('Invalid status')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);

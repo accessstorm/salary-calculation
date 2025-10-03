@@ -16,7 +16,11 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Eye
+  Eye,
+  ChevronDown,
+  Clock,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -31,6 +35,7 @@ import api from '../services/api';
 import EmployeeForm from './EmployeeForm';
 import SalaryCalculator from './SalaryCalculator';
 import InvoiceViewer from './InvoiceViewer';
+import { Dropdown, DropdownItem } from './ui/dropdown';
 
 const EnhancedPayrollDashboard = () => {
   // State management
@@ -211,22 +216,15 @@ const EnhancedPayrollDashboard = () => {
   // Salary calculator handler
   const handleSalaryCalculatorSubmit = async (payrollData) => {
     console.log('handleSalaryCalculatorSubmit called with:', payrollData);
+    console.log('existingPayrollRecord:', existingPayrollRecord);
     try {
       setLoading(true);
       
-      // Check if a record already exists for this employee and month/year
-      const existingRecords = await api.getPayrollRecords({
-        employee: payrollData.employee,
-        month: payrollData.month,
-        year: payrollData.year,
-        limit: 1
-      });
-      
       let response;
-      if (existingRecords.payrollRecords && existingRecords.payrollRecords.length > 0) {
+      if (existingPayrollRecord) {
         // Update existing record
-        console.log('Updating existing payroll record:', existingRecords.payrollRecords[0]._id);
-        response = await api.updatePayrollRecord(existingRecords.payrollRecords[0]._id, payrollData);
+        console.log('Updating existing payroll record:', existingPayrollRecord._id);
+        response = await api.updatePayrollRecord(existingPayrollRecord._id, payrollData);
         showSuccess('Invoice updated successfully');
       } else {
         // Create new record
@@ -239,6 +237,7 @@ const EnhancedPayrollDashboard = () => {
       
       setShowSalaryCalculator(false);
       setSelectedEmployeeForSalary(null);
+      setExistingPayrollRecord(null);
       loadPayrollRecords();
     } catch (error) {
       console.error('Error processing payroll record:', error);
@@ -268,6 +267,76 @@ const EnhancedPayrollDashboard = () => {
     } catch (error) {
       console.error('Error fetching invoice:', error);
       showError('Failed to load invoice');
+    }
+  };
+
+  // Handle status update
+  const handleStatusUpdate = async (employee, newStatus) => {
+    try {
+      console.log('handleStatusUpdate called with:', { employee: employee._id, newStatus });
+      
+      // Find the latest payroll record for this employee
+      const response = await api.getPayrollRecords({
+        employee: employee._id,
+        limit: 1
+      });
+      
+      console.log('Found payroll records:', response.payrollRecords);
+      
+      if (response.payrollRecords && response.payrollRecords.length > 0) {
+        const latestRecord = response.payrollRecords[0];
+        console.log('Updating record:', latestRecord._id, 'with status:', newStatus);
+        
+        // Don't allow updating to 'no-invoice' if record exists
+        if (newStatus === 'no-invoice') {
+          showError('Cannot set status to "No Invoice" for existing records');
+          return;
+        }
+        
+        await api.updatePayrollRecord(latestRecord._id, { status: newStatus });
+        showSuccess(`Invoice status updated to ${newStatus}`);
+        loadPayrollRecords();
+      } else {
+        console.log('No payroll records found for employee:', employee._id);
+        
+        // If trying to set status to 'no-invoice' and no records exist, that's already the case
+        if (newStatus === 'no-invoice') {
+          showSuccess('Employee already has no invoice');
+          return;
+        }
+        
+        showError('No invoice found to update status. Please generate an invoice first.');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      showError('Failed to update status');
+    }
+  };
+
+  // Get employee's latest invoice status
+  const getEmployeeStatus = (employeeId) => {
+    const employeeRecords = payrollRecords.filter(record => record.employee === employeeId);
+    if (employeeRecords.length > 0) {
+      // Sort by date and get the latest
+      const latestRecord = employeeRecords.sort((a, b) => new Date(b.payrollDate) - new Date(a.payrollDate))[0];
+      return latestRecord.status || 'draft';
+    }
+    return 'no-invoice';
+  };
+
+  // Get status badge color
+  const getStatusBadgeColor = (status) => {
+    switch (status) {
+      case 'draft':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'approved':
+        return 'bg-blue-100 text-blue-800';
+      case 'paid':
+        return 'bg-green-100 text-green-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -583,6 +652,7 @@ const EnhancedPayrollDashboard = () => {
                 onChange={(e) => handleFilterChange('status', e.target.value)}
               >
                 <option value="">All Status</option>
+                <option value="no-invoice">No Invoice</option>
                 <option value="draft">Draft</option>
                 <option value="approved">Approved</option>
                 <option value="paid">Paid</option>
@@ -697,6 +767,7 @@ const EnhancedPayrollDashboard = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Salary</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
@@ -736,6 +807,11 @@ const EnhancedPayrollDashboard = () => {
                           ₹{employee.baseSalary?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <Badge className={getStatusBadgeColor(getEmployeeStatus(employee._id))}>
+                            {getEmployeeStatus(employee._id) === 'no-invoice' ? 'No Invoice' : getEmployeeStatus(employee._id).toUpperCase()}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div className="flex flex-col space-y-1">
                             <div className="flex space-x-1">
                               <Button
@@ -771,20 +847,21 @@ const EnhancedPayrollDashboard = () => {
                               onClick={async () => {
                                 setSelectedEmployeeForSalary(employee);
                                 
-                                // Check if there's an existing record for this employee and current month/year
+                                // Check if there's an existing record for this employee (latest one)
                                 try {
-                                  const currentDate = new Date();
                                   const response = await api.getPayrollRecords({
                                     employee: employee._id,
-                                    month: currentDate.getMonth() + 1,
-                                    year: currentDate.getFullYear(),
                                     limit: 1
                                   });
                                   
+                                  console.log('Checking for existing payroll record:', response.payrollRecords);
+                                  
                                   if (response.payrollRecords && response.payrollRecords.length > 0) {
                                     setExistingPayrollRecord(response.payrollRecords[0]);
+                                    console.log('Found existing record:', response.payrollRecords[0]);
                                   } else {
                                     setExistingPayrollRecord(null);
+                                    console.log('No existing record found');
                                   }
                                 } catch (error) {
                                   console.error('Error checking existing record:', error);
@@ -808,6 +885,53 @@ const EnhancedPayrollDashboard = () => {
                               <Eye className="h-4 w-4 mr-1" />
                               Show Invoice
                             </Button>
+                            <Dropdown
+                              trigger={
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full"
+                                  title="Update Status"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Status
+                                  <ChevronDown className="h-3 w-3 ml-1" />
+                                </Button>
+                              }
+                            >
+                              <DropdownItem
+                                onClick={() => handleStatusUpdate(employee, 'draft')}
+                                className="flex items-center"
+                                disabled={getEmployeeStatus(employee._id) === 'no-invoice'}
+                              >
+                                <Clock className="h-4 w-4 mr-2 text-yellow-600" />
+                                <span>Draft</span>
+                              </DropdownItem>
+                              <DropdownItem
+                                onClick={() => handleStatusUpdate(employee, 'approved')}
+                                className="flex items-center"
+                                disabled={getEmployeeStatus(employee._id) === 'no-invoice'}
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-2 text-blue-600" />
+                                <span>Approved</span>
+                              </DropdownItem>
+                              <DropdownItem
+                                onClick={() => handleStatusUpdate(employee, 'paid')}
+                                className="flex items-center"
+                                disabled={getEmployeeStatus(employee._id) === 'no-invoice'}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                                <span>Paid</span>
+                              </DropdownItem>
+                              <DropdownItem
+                                onClick={() => handleStatusUpdate(employee, 'cancelled')}
+                                className="flex items-center"
+                                disabled={getEmployeeStatus(employee._id) === 'no-invoice'}
+                              >
+                                <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                <span>Cancelled</span>
+                              </DropdownItem>
+                            </Dropdown>
                           </div>
                         </td>
                       </tr>

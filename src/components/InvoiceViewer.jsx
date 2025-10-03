@@ -20,13 +20,18 @@ const InvoiceViewer = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    const printWindow = window.open('', '_blank');
+    const printContent = generatePrintHTML();
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
   };
 
   const handleDownload = () => {
-    const element = document.getElementById('invoice-content');
-    const html = element.innerHTML;
-    const blob = new Blob([html], { type: 'text/html' });
+    const printContent = generatePrintHTML();
+    const blob = new Blob([printContent], { type: 'text/html' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -35,6 +40,430 @@ const InvoiceViewer = ({
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+  };
+
+  const generatePrintHTML = () => {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Salary Invoice - ${employee.name}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: white;
+            padding: 20px;
+        }
+        
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border: 1px solid #ddd;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .invoice-date {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #2563eb;
+        }
+        
+        .section h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section h3::before {
+            content: "📋";
+            margin-right: 8px;
+        }
+        
+        .section.calculation h3::before {
+            content: "🧮";
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            color: #6b7280;
+            font-weight: 500;
+        }
+        
+        .detail-value {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .status-badge {
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-badge.approved {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-badge.draft {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .calculations {
+            background: #f0f9ff;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #bae6fd;
+            margin-bottom: 30px;
+        }
+        
+        .calculations h3 {
+            color: #0c4a6e;
+            margin-bottom: 20px;
+        }
+        
+        .calculation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .calc-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0f2fe;
+        }
+        
+        .calc-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+        
+        .calc-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .earnings, .deductions {
+            margin: 20px 0;
+        }
+        
+        .earnings h4, .deductions h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .earnings h4 {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .deductions h4 {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .earnings .detail-row .detail-value {
+            color: #166534;
+        }
+        
+        .deductions .detail-row .detail-value {
+            color: #dc2626;
+        }
+        
+        .net-payable {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .net-payable .label {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .net-payable .amount {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        .notes {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .notes h3 {
+            color: #374151;
+            margin-bottom: 10px;
+        }
+        
+        .notes p {
+            color: #6b7280;
+            font-style: italic;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 12px;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .invoice-container {
+                border: none;
+                padding: 0;
+                max-width: none;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="header">
+            <h1>SALARY INVOICE</h1>
+            <p>Payroll Management System</p>
+            <div class="invoice-date">
+                Invoice Date: ${formatDate(invoice.payrollDate)}
+            </div>
+        </div>
+
+        <div class="details-grid">
+            <div class="section">
+                <h3>Employee Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Name:</span>
+                    <span class="detail-value">${employee.name}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Employee ID:</span>
+                    <span class="detail-value">${employee.employeeId}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Email:</span>
+                    <span class="detail-value">${employee.email}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Department:</span>
+                    <span class="detail-value">${employee.department}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Position:</span>
+                    <span class="detail-value">${employee.position}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Hire Date:</span>
+                    <span class="detail-value">${formatDate(employee.hireDate)}</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Salary Period</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Month:</span>
+                    <span class="detail-value">${new Date(invoice.year, invoice.month - 1).toLocaleString('default', { month: 'long' })}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Year:</span>
+                    <span class="detail-value">${invoice.year}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Payroll Date:</span>
+                    <span class="detail-value">${formatDate(invoice.payrollDate)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Status:</span>
+                    <span class="detail-value">
+                        <span class="status-badge ${invoice.status || 'draft'}">${(invoice.status || 'draft').toUpperCase()}</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="calculations">
+            <h3>Salary Calculations</h3>
+            
+            <div class="calculation-grid">
+                <div class="calc-item">
+                    <div class="calc-label">Base Salary</div>
+                    <div class="calc-value">₹${invoice.baseSalary?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                </div>
+                <div class="calc-item">
+                    <div class="calc-label">Per Day Salary</div>
+                    <div class="calc-value">₹${invoice.perDaySalary?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                </div>
+                <div class="calc-item">
+                    <div class="calc-label">Total Days Worked</div>
+                    <div class="calc-value">${invoice.totalDays}</div>
+                </div>
+                <div class="calc-item">
+                    <div class="calc-label">Half Days</div>
+                    <div class="calc-value">${invoice.halfDays || 0}</div>
+                </div>
+                <div class="calc-item">
+                    <div class="calc-label">Leave Days</div>
+                    <div class="calc-value">${invoice.leaveDays || 0}</div>
+                </div>
+                <div class="calc-item">
+                    <div class="calc-label">Overtime Hours</div>
+                    <div class="calc-value">${invoice.overtimeHours || 0}</div>
+                </div>
+            </div>
+
+            <div class="earnings">
+                <h4>Earnings</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Gross Salary (Days × Per Day):</span>
+                    <span class="detail-value">₹${invoice.grossSalary?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                ${invoice.overtimePay > 0 ? `
+                <div class="detail-row">
+                    <span class="detail-label">Overtime Pay:</span>
+                    <span class="detail-value">₹${invoice.overtimePay?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+                ${invoice.bonus > 0 ? `
+                <div class="detail-row">
+                    <span class="detail-label">Bonus:</span>
+                    <span class="detail-value">₹${invoice.bonus?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+                ${invoice.efficiencyAdjustment > 0 ? `
+                <div class="detail-row">
+                    <span class="detail-label">Efficiency Bonus:</span>
+                    <span class="detail-value">₹${invoice.efficiencyAdjustment?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+            </div>
+
+            <div class="deductions">
+                <h4>Deductions</h4>
+                ${invoice.halfDayDeduction > 0 ? `
+                <div class="detail-row">
+                    <span class="detail-label">Half Day Deduction:</span>
+                    <span class="detail-value">₹${invoice.halfDayDeduction?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+                ${invoice.unpaidLeaveDeduction > 0 ? `
+                <div class="detail-row">
+                    <span class="detail-label">Unpaid Leave Deduction:</span>
+                    <span class="detail-value">₹${invoice.unpaidLeaveDeduction?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+                ${invoice.efficiencyAdjustment < 0 ? `
+                <div class="detail-row">
+                    <span class="detail-label">Efficiency Deduction:</span>
+                    <span class="detail-value">₹${Math.abs(invoice.efficiencyAdjustment)?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+            </div>
+
+            <div class="net-payable">
+                <div class="label">Net Payable Salary</div>
+                <div class="amount">₹${invoice.netPayableSalary?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+            </div>
+        </div>
+
+        ${invoice.notes ? `
+        <div class="notes">
+            <h3>Notes</h3>
+            <p>${invoice.notes}</p>
+        </div>
+        ` : ''}
+
+        <div class="footer">
+            <p>This is a computer-generated invoice. No signature required.</p>
+            <p>Generated on ${formatDate(new Date().toISOString())}</p>
+        </div>
+    </div>
+</body>
+</html>`;
   };
 
   return (
@@ -51,7 +480,7 @@ const InvoiceViewer = ({
                 Invoice for {new Date(invoice.year, invoice.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
               </CardDescription>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 no-print">
               <Button
                 variant="outline"
                 size="sm"
