@@ -90,27 +90,29 @@ const EnhancedPayrollDashboard = () => {
   // Load data on component mount
   useEffect(() => {
     loadEmployees(true);
-    loadPayrollRecords(false); // Don't show loading for payroll records on initial load
   }, []);
 
   // Load employees
   const loadEmployees = async (showLoading = true, searchQuery = null) => {
     try {
       if (showLoading) setLoading(true);
+      console.log('Loading employees with search:', searchQuery !== null ? searchQuery : searchTerm);
       const response = await api.getEmployees({ 
         search: searchQuery !== null ? searchQuery : searchTerm,
         page: 1,
         limit: 100 
       });
+      console.log('Employees loaded:', response.employees);
       setEmployees(response.employees);
     } catch (error) {
+      console.error('Error loading employees:', error);
       showError('Failed to load employees');
     } finally {
       if (showLoading) setLoading(false);
     }
   };
 
-  // Load payroll records
+  // Load payroll records (filtered by month/year for payroll table)
   const loadPayrollRecords = async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
@@ -142,9 +144,17 @@ const EnhancedPayrollDashboard = () => {
   // Handle search
   const handleSearch = (e) => {
     const value = e.target.value;
+    console.log('Search input changed to:', value);
     setSearchTerm(value);
+    
+    // Clear any existing timeout
+    if (window.searchTimeout) {
+      clearTimeout(window.searchTimeout);
+    }
+    
     // Debounce search
-    setTimeout(() => {
+    window.searchTimeout = setTimeout(() => {
+      console.log('Executing search for:', value);
       loadEmployees(false, value); // Don't show loading spinner for search, pass the search value
     }, 500);
   };
@@ -233,7 +243,7 @@ const EnhancedPayrollDashboard = () => {
       setShowSalaryCalculator(false);
       setSelectedEmployeeForSalary(null);
       setExistingPayrollRecord(null);
-      loadPayrollRecords();
+      loadPayrollRecords(false); // Reload payroll records
     } catch (error) {
       console.error('Error processing payroll record:', error);
       showError(error.message || 'Failed to generate invoice');
@@ -351,7 +361,7 @@ const EnhancedPayrollDashboard = () => {
         bonus: 0,
         notes: ''
       });
-      loadPayrollRecords();
+      loadPayrollRecords(false); // Reload payroll records
     } catch (error) {
       showError(error.message);
     } finally {
@@ -366,6 +376,7 @@ const EnhancedPayrollDashboard = () => {
         await api.deleteEmployee(id);
         showSuccess('Employee deleted successfully');
         loadEmployees(false); // Don't show loading spinner after delete
+        loadAllPayrollRecords(); // Reload payroll records to update Net Payable display
       } catch (error) {
         showError(error.message);
       }
@@ -398,6 +409,7 @@ const EnhancedPayrollDashboard = () => {
         showSuccess(`${selectedEmployees.length} employees deleted successfully`);
         setSelectedEmployees([]);
         loadEmployees(false); // Don't show loading spinner after bulk delete
+        loadAllPayrollRecords(); // Reload payroll records to update Net Payable display
       } catch (error) {
         showError('Failed to delete some employees');
       } finally {
