@@ -8,6 +8,7 @@ class ApiService {
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const token = localStorage.getItem('token');
+    const guestUser = localStorage.getItem('guestUser');
 
     console.log('API Request:', {
       url,
@@ -15,6 +16,7 @@ class ApiService {
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
+        ...(guestUser && { 'X-Guest-User': 'true' }),
         ...options.headers,
       },
       body: options.body
@@ -24,6 +26,7 @@ class ApiService {
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
+        ...(guestUser && { 'X-Guest-User': 'true' }),
         ...options.headers,
       },
       ...options,
@@ -48,24 +51,7 @@ class ApiService {
     }
   }
 
-  // Auth endpoints
-  async login(email, password) {
-    return this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-  }
-
-  async register(userData) {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-  }
-
-  async getCurrentUser() {
-    return this.request('/auth/me');
-  }
+  // Note: Authentication endpoints removed - using guest user mode
 
   // Employee endpoints
   async getEmployees(params = {}) {

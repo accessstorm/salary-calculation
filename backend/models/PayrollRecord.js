@@ -101,7 +101,11 @@ const payrollRecordSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
+  },
+  createdByGuest: {
+    type: Boolean,
+    default: false
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,

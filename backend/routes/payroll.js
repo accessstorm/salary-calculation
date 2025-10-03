@@ -243,7 +243,8 @@ router.post('/', auth, [
       bonus,
       netPayableSalary,
       notes,
-      createdBy: req.user._id
+      createdBy: req.user.isGuest ? null : req.user._id,
+      createdByGuest: req.user.isGuest || false
     });
 
     await payrollRecord.save();
@@ -281,7 +282,7 @@ router.put('/:id', auth, [
 
     // Update status-specific fields
     if (req.body.status === 'approved') {
-      req.body.approvedBy = req.user._id;
+      req.body.approvedBy = req.user.isGuest ? null : req.user._id;
       req.body.approvedAt = new Date();
     } else if (req.body.status === 'paid') {
       req.body.paidAt = new Date();

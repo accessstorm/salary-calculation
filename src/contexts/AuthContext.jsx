@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../services/api';
 
 const AuthContext = createContext();
 
@@ -17,16 +16,11 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const initAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const response = await api.getCurrentUser();
-          setUser(response.user);
-        } catch (error) {
-          console.error('Auth initialization failed:', error);
-          localStorage.removeItem('token');
-        }
+    const initAuth = () => {
+      // Check if user is already logged in as guest
+      const guestUser = localStorage.getItem('guestUser');
+      if (guestUser) {
+        setUser(JSON.parse(guestUser));
       }
       setLoading(false);
     };
@@ -34,34 +28,22 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  const login = async (email, password) => {
-    try {
-      setError(null);
-      const response = await api.login(email, password);
-      localStorage.setItem('token', response.token);
-      setUser(response.user);
-      return response;
-    } catch (error) {
-      setError(error.message);
-      throw error;
-    }
-  };
-
-  const register = async (userData) => {
-    try {
-      setError(null);
-      const response = await api.register(userData);
-      localStorage.setItem('token', response.token);
-      setUser(response.user);
-      return response;
-    } catch (error) {
-      setError(error.message);
-      throw error;
-    }
+  const loginAsGuest = () => {
+    const guestUser = {
+      id: 'guest-user',
+      name: 'Guest User',
+      email: 'guest@example.com',
+      role: 'hr',
+      isGuest: true
+    };
+    
+    localStorage.setItem('guestUser', JSON.stringify(guestUser));
+    setUser(guestUser);
+    setError(null);
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('guestUser');
     setUser(null);
     setError(null);
   };
@@ -74,8 +56,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     error,
-    login,
-    register,
+    loginAsGuest,
     logout,
     clearError,
     isAuthenticated: !!user,

@@ -128,7 +128,8 @@ router.post('/', auth, [
       position,
       baseSalary,
       hireDate,
-      createdBy: req.user._id
+      createdBy: req.user.isGuest ? null : req.user._id,
+      createdByGuest: req.user.isGuest || false
     });
 
     await employee.save();
