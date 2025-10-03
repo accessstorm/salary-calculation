@@ -89,16 +89,16 @@ const EnhancedPayrollDashboard = () => {
 
   // Load data on component mount
   useEffect(() => {
-    loadEmployees();
-    loadPayrollRecords();
+    loadEmployees(true);
+    loadPayrollRecords(false); // Don't show loading for payroll records on initial load
   }, []);
 
   // Load employees
-  const loadEmployees = async () => {
+  const loadEmployees = async (showLoading = true, searchQuery = null) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const response = await api.getEmployees({ 
-        search: searchTerm,
+        search: searchQuery !== null ? searchQuery : searchTerm,
         page: 1,
         limit: 100 
       });
@@ -106,14 +106,14 @@ const EnhancedPayrollDashboard = () => {
     } catch (error) {
       showError('Failed to load employees');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   // Load payroll records
-  const loadPayrollRecords = async () => {
+  const loadPayrollRecords = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const params = {
         month: filterMonth,
         year: filterYear,
@@ -125,7 +125,7 @@ const EnhancedPayrollDashboard = () => {
     } catch (error) {
       showError('Failed to load payroll records');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -141,10 +141,11 @@ const EnhancedPayrollDashboard = () => {
 
   // Handle search
   const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
+    const value = e.target.value;
+    setSearchTerm(value);
     // Debounce search
     setTimeout(() => {
-      loadEmployees();
+      loadEmployees(false, value); // Don't show loading spinner for search, pass the search value
     }, 500);
   };
 
@@ -158,7 +159,7 @@ const EnhancedPayrollDashboard = () => {
         setFilterYear(value);
         break;
     }
-    loadPayrollRecords();
+    loadPayrollRecords(false); // Don't show loading spinner for filter changes
   };
 
   // Employee form handlers
@@ -198,7 +199,7 @@ const EnhancedPayrollDashboard = () => {
         hireDate: '',
         category: 'active'
       });
-      loadEmployees();
+      loadEmployees(false); // Don't show loading spinner after employee creation
     } catch (error) {
       console.error('Error creating/updating employee:', error);
       showError(error.message || 'Failed to save employee');
@@ -364,7 +365,7 @@ const EnhancedPayrollDashboard = () => {
       try {
         await api.deleteEmployee(id);
         showSuccess('Employee deleted successfully');
-        loadEmployees();
+        loadEmployees(false); // Don't show loading spinner after delete
       } catch (error) {
         showError(error.message);
       }
@@ -396,7 +397,7 @@ const EnhancedPayrollDashboard = () => {
         await Promise.all(selectedEmployees.map(id => api.deleteEmployee(id)));
         showSuccess(`${selectedEmployees.length} employees deleted successfully`);
         setSelectedEmployees([]);
-        loadEmployees();
+        loadEmployees(false); // Don't show loading spinner after bulk delete
       } catch (error) {
         showError('Failed to delete some employees');
       } finally {
