@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Select } from './ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
-import { X, User, Mail, Hash, Building, Briefcase, DollarSign, Calendar } from 'lucide-react';
+import { X, User, Mail, Hash, Building, Briefcase, DollarSign, Calendar, Tag } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 const EmployeeForm = ({ 
@@ -20,7 +21,8 @@ const EmployeeForm = ({
     department: editingEmployee?.department || '',
     position: editingEmployee?.position || '',
     baseSalary: editingEmployee?.baseSalary || '',
-    hireDate: editingEmployee?.hireDate ? new Date(editingEmployee.hireDate).toISOString().split('T')[0] : ''
+    hireDate: editingEmployee?.hireDate ? new Date(editingEmployee.hireDate).toISOString().split('T')[0] : '',
+    category: editingEmployee?.category || 'active'
   });
   const [errors, setErrors] = useState({});
 
@@ -274,6 +276,32 @@ const EmployeeForm = ({
                   </div>
                   {errors.hireDate && (
                     <p className="text-sm text-red-600">{errors.hireDate}</p>
+                  )}
+                </div>
+
+                {/* Category */}
+                <div className="space-y-2">
+                  <label htmlFor="category" className="text-sm font-medium">
+                    Category *
+                  </label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Select
+                      id="category"
+                      name="category"
+                      value={formData.category}
+                      onChange={handleChange}
+                      className="pl-10"
+                      disabled={loading}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="on-leave">On Leave</option>
+                      <option value="terminated">Terminated</option>
+                    </Select>
+                  </div>
+                  {errors.category && (
+                    <p className="text-sm text-red-600">{errors.category}</p>
                   )}
                 </div>
               </div>

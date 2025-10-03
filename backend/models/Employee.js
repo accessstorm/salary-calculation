@@ -42,6 +42,11 @@ const employeeSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  category: {
+    type: String,
+    enum: ['active', 'inactive', 'on-leave', 'terminated'],
+    default: 'active'
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

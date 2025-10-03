@@ -99,7 +99,8 @@ router.post('/', auth, [
   body('department').trim().notEmpty().withMessage('Department is required'),
   body('position').trim().notEmpty().withMessage('Position is required'),
   body('baseSalary').isNumeric().withMessage('Base salary must be a number'),
-  body('hireDate').isISO8601().withMessage('Valid hire date is required')
+  body('hireDate').isISO8601().withMessage('Valid hire date is required'),
+  body('category').optional().isIn(['active', 'inactive', 'on-leave', 'terminated']).withMessage('Invalid category')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -107,7 +108,7 @@ router.post('/', auth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, employeeId, department, position, baseSalary, hireDate } = req.body;
+    const { name, email, employeeId, department, position, baseSalary, hireDate, category = 'active' } = req.body;
 
     // Check if employee ID already exists
     const existingEmployee = await Employee.findOne({ 
@@ -128,6 +129,7 @@ router.post('/', auth, [
       position,
       baseSalary,
       hireDate,
+      category,
       createdBy: req.user.isGuest ? null : req.user._id,
       createdByGuest: req.user.isGuest || false
     });

@@ -91,11 +91,10 @@ const payrollRecordSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  // Status
-  status: {
-    type: String,
-    enum: ['draft', 'approved', 'paid', 'cancelled'],
-    default: 'draft'
+  // Simple status - just whether it's processed or not
+  isProcessed: {
+    type: Boolean,
+    default: false
   },
   // Metadata
   createdBy: {
@@ -107,14 +106,7 @@ const payrollRecordSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  approvedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  approvedAt: {
-    type: Date
-  },
-  paidAt: {
+  processedAt: {
     type: Date
   },
   notes: {

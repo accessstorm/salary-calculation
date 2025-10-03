@@ -16,11 +16,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Eye,
-  ChevronDown,
-  Clock,
-  CheckCircle2,
-  XCircle
+  Eye
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -35,7 +31,7 @@ import api from '../services/api';
 import EmployeeForm from './EmployeeForm';
 import SalaryCalculator from './SalaryCalculator';
 import InvoiceViewer from './InvoiceViewer';
-import { Dropdown, DropdownItem } from './ui/dropdown';
+import SalaryPaymentPage from './SalaryPaymentPage';
 
 const EnhancedPayrollDashboard = () => {
   // State management
@@ -45,7 +41,6 @@ const EnhancedPayrollDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
-  const [filterStatus, setFilterStatus] = useState('');
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [analytics, setAnalytics] = useState(null);
@@ -55,6 +50,7 @@ const EnhancedPayrollDashboard = () => {
   const [showPayrollForm, setShowPayrollForm] = useState(false);
   const [showSalaryCalculator, setShowSalaryCalculator] = useState(false);
   const [showInvoiceViewer, setShowInvoiceViewer] = useState(false);
+  const [showSalaryPaymentPage, setShowSalaryPaymentPage] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [editingPayroll, setEditingPayroll] = useState(null);
   const [selectedEmployeeForSalary, setSelectedEmployeeForSalary] = useState(null);
@@ -69,7 +65,8 @@ const EnhancedPayrollDashboard = () => {
     department: '',
     position: '',
     baseSalary: '',
-    hireDate: ''
+    hireDate: '',
+    category: 'active'
   });
   
   const [payrollForm, setPayrollForm] = useState({
@@ -120,7 +117,6 @@ const EnhancedPayrollDashboard = () => {
       const params = {
         month: filterMonth,
         year: filterYear,
-        status: filterStatus,
         page: 1,
         limit: 100
       };
@@ -161,9 +157,6 @@ const EnhancedPayrollDashboard = () => {
       case 'year':
         setFilterYear(value);
         break;
-      case 'status':
-        setFilterStatus(value);
-        break;
     }
     loadPayrollRecords();
   };
@@ -202,7 +195,8 @@ const EnhancedPayrollDashboard = () => {
         department: '',
         position: '',
         baseSalary: '',
-        hireDate: ''
+        hireDate: '',
+        category: 'active'
       });
       loadEmployees();
     } catch (error) {
@@ -270,70 +264,16 @@ const EnhancedPayrollDashboard = () => {
     }
   };
 
-  // Handle status update
-  const handleStatusUpdate = async (employee, newStatus) => {
-    try {
-      console.log('handleStatusUpdate called with:', { employee: employee._id, newStatus });
-      
-      // Find the latest payroll record for this employee
-      const response = await api.getPayrollRecords({
-        employee: employee._id,
-        limit: 1
-      });
-      
-      console.log('Found payroll records:', response.payrollRecords);
-      
-      if (response.payrollRecords && response.payrollRecords.length > 0) {
-        const latestRecord = response.payrollRecords[0];
-        console.log('Updating record:', latestRecord._id, 'with status:', newStatus);
-        
-        // Don't allow updating to 'no-invoice' if record exists
-        if (newStatus === 'no-invoice') {
-          showError('Cannot set status to "No Invoice" for existing records');
-          return;
-        }
-        
-        await api.updatePayrollRecord(latestRecord._id, { status: newStatus });
-        showSuccess(`Invoice status updated to ${newStatus}`);
-        loadPayrollRecords();
-      } else {
-        console.log('No payroll records found for employee:', employee._id);
-        
-        // If trying to set status to 'no-invoice' and no records exist, that's already the case
-        if (newStatus === 'no-invoice') {
-          showSuccess('Employee already has no invoice');
-          return;
-        }
-        
-        showError('No invoice found to update status. Please generate an invoice first.');
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      showError('Failed to update status');
-    }
-  };
-
-  // Get employee's latest invoice status
-  const getEmployeeStatus = (employeeId) => {
-    const employeeRecords = payrollRecords.filter(record => record.employee === employeeId);
-    if (employeeRecords.length > 0) {
-      // Sort by date and get the latest
-      const latestRecord = employeeRecords.sort((a, b) => new Date(b.payrollDate) - new Date(a.payrollDate))[0];
-      return latestRecord.status || 'draft';
-    }
-    return 'no-invoice';
-  };
-
-  // Get status badge color
-  const getStatusBadgeColor = (status) => {
-    switch (status) {
-      case 'draft':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'approved':
-        return 'bg-blue-100 text-blue-800';
-      case 'paid':
+  // Get category badge color
+  const getCategoryBadgeColor = (category) => {
+    switch (category) {
+      case 'active':
         return 'bg-green-100 text-green-800';
-      case 'cancelled':
+      case 'inactive':
+        return 'bg-gray-100 text-gray-800';
+      case 'on-leave':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'terminated':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -508,7 +448,16 @@ const EnhancedPayrollDashboard = () => {
   const totalEmployees = employees.length;
   const totalPayableAmount = payrollRecords.reduce((sum, record) => sum + (record.netPayableSalary || 0), 0);
   const averageSalary = totalEmployees > 0 ? totalPayableAmount / totalEmployees : 0;
-  const activeRecords = payrollRecords.filter(record => record.status === 'paid').length;
+  const activeRecords = payrollRecords.filter(record => record.isProcessed).length;
+
+  // Show salary payment page if requested
+  if (showSalaryPaymentPage) {
+    return (
+      <SalaryPaymentPage 
+        onBack={() => setShowSalaryPaymentPage(false)} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -610,7 +559,7 @@ const EnhancedPayrollDashboard = () => {
             <CardTitle>Search & Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -647,17 +596,6 @@ const EnhancedPayrollDashboard = () => {
                 })}
               </Select>
 
-              <Select
-                value={filterStatus}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-              >
-                <option value="">All Status</option>
-                <option value="no-invoice">No Invoice</option>
-                <option value="draft">Draft</option>
-                <option value="approved">Approved</option>
-                <option value="paid">Paid</option>
-                <option value="cancelled">Cancelled</option>
-              </Select>
             </div>
           </CardContent>
         </Card>
@@ -671,6 +609,10 @@ const EnhancedPayrollDashboard = () => {
           <Button onClick={() => setShowPayrollForm(true)} variant="outline">
             <Calculator className="h-4 w-4 mr-2" />
             Create Payroll
+          </Button>
+          <Button onClick={() => setShowSalaryPaymentPage(true)} variant="default" className="bg-green-600 hover:bg-green-700">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Process Salary Payment
           </Button>
           <Button onClick={handleExportCSV} variant="outline">
             <Download className="h-4 w-4 mr-2" />
@@ -767,7 +709,7 @@ const EnhancedPayrollDashboard = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Salary</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
@@ -807,8 +749,8 @@ const EnhancedPayrollDashboard = () => {
                           ₹{employee.baseSalary?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <Badge className={getStatusBadgeColor(getEmployeeStatus(employee._id))}>
-                            {getEmployeeStatus(employee._id) === 'no-invoice' ? 'No Invoice' : getEmployeeStatus(employee._id).toUpperCase()}
+                          <Badge className={getCategoryBadgeColor(employee.category)}>
+                            {employee.category?.toUpperCase() || 'ACTIVE'}
                           </Badge>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -826,7 +768,8 @@ const EnhancedPayrollDashboard = () => {
                                     department: employee.department,
                                     position: employee.position,
                                     baseSalary: employee.baseSalary,
-                                    hireDate: new Date(employee.hireDate).toISOString().split('T')[0]
+                                    hireDate: new Date(employee.hireDate).toISOString().split('T')[0],
+                                    category: employee.category || 'active'
                                   });
                                   setShowEmployeeForm(true);
                                 }}
@@ -885,53 +828,6 @@ const EnhancedPayrollDashboard = () => {
                               <Eye className="h-4 w-4 mr-1" />
                               Show Invoice
                             </Button>
-                            <Dropdown
-                              trigger={
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="w-full"
-                                  title="Update Status"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Status
-                                  <ChevronDown className="h-3 w-3 ml-1" />
-                                </Button>
-                              }
-                            >
-                              <DropdownItem
-                                onClick={() => handleStatusUpdate(employee, 'draft')}
-                                className="flex items-center"
-                                disabled={getEmployeeStatus(employee._id) === 'no-invoice'}
-                              >
-                                <Clock className="h-4 w-4 mr-2 text-yellow-600" />
-                                <span>Draft</span>
-                              </DropdownItem>
-                              <DropdownItem
-                                onClick={() => handleStatusUpdate(employee, 'approved')}
-                                className="flex items-center"
-                                disabled={getEmployeeStatus(employee._id) === 'no-invoice'}
-                              >
-                                <CheckCircle2 className="h-4 w-4 mr-2 text-blue-600" />
-                                <span>Approved</span>
-                              </DropdownItem>
-                              <DropdownItem
-                                onClick={() => handleStatusUpdate(employee, 'paid')}
-                                className="flex items-center"
-                                disabled={getEmployeeStatus(employee._id) === 'no-invoice'}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                                <span>Paid</span>
-                              </DropdownItem>
-                              <DropdownItem
-                                onClick={() => handleStatusUpdate(employee, 'cancelled')}
-                                className="flex items-center"
-                                disabled={getEmployeeStatus(employee._id) === 'no-invoice'}
-                              >
-                                <XCircle className="h-4 w-4 mr-2 text-red-600" />
-                                <span>Cancelled</span>
-                              </DropdownItem>
-                            </Dropdown>
                           </div>
                         </td>
                       </tr>
