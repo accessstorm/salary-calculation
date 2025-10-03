@@ -33,6 +33,74 @@ import SalaryCalculator from './SalaryCalculator';
 import InvoiceViewer from './InvoiceViewer';
 import SalaryPaymentPage from './SalaryPaymentPage';
 
+// Net Payable Cell Component
+const NetPayableCell = ({ employee }) => {
+  const [invoiceStatus, setInvoiceStatus] = useState({ hasInvoice: false, netPayable: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkEmployeeInvoice = async () => {
+      try {
+        setLoading(true);
+        const response = await api.getPayrollRecords({
+          employee: employee._id,
+          limit: 1
+        });
+        
+        if (response.payrollRecords && response.payrollRecords.length > 0) {
+          const record = response.payrollRecords[0];
+          setInvoiceStatus({
+            hasInvoice: true,
+            netPayable: record.netPayableSalary || 0
+          });
+        } else {
+          setInvoiceStatus({
+            hasInvoice: false,
+            netPayable: 0
+          });
+        }
+      } catch (error) {
+        console.error('Error checking invoice:', error);
+        setInvoiceStatus({
+          hasInvoice: false,
+          netPayable: 0
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkEmployeeInvoice();
+  }, [employee._id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center space-x-2">
+        <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+        <div className="h-4 bg-gray-200 rounded w-12 animate-pulse"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center space-x-2">
+      <span className={`font-medium ${invoiceStatus.hasInvoice ? 'text-green-600' : 'text-gray-400'}`}>
+        ₹{invoiceStatus.netPayable.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+      </span>
+      {!invoiceStatus.hasInvoice && (
+        <Badge variant="outline" className="text-orange-600 border-orange-600 text-xs">
+          No Invoice
+        </Badge>
+      )}
+      {invoiceStatus.hasInvoice && (
+        <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
+          Ready
+        </Badge>
+      )}
+    </div>
+  );
+};
+
 const EnhancedPayrollDashboard = () => {
   // State management
   const [employees, setEmployees] = useState([]);
@@ -722,6 +790,7 @@ const EnhancedPayrollDashboard = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Salary</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Payable</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -760,6 +829,9 @@ const EnhancedPayrollDashboard = () => {
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                           ₹{employee.baseSalary?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <NetPayableCell employee={employee} />
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                           <Badge className={getCategoryBadgeColor(employee.category)}>
